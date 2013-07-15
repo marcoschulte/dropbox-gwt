@@ -173,7 +173,7 @@ public class DropboxWrapper {
 
 		client
 				.metadata(
-						path,
+						path, {httpCache: true},
 						function(error, stat) {
 							if (error) {
 								$entry(callback.@com.google.gwt.core.client.Callback::onFailure(Ljava/lang/Object;)(error));
@@ -188,7 +188,7 @@ public class DropboxWrapper {
 
 		client
 				.readdir(
-						path,
+						path, {httpCache: true},
 						function(error, entries, stat, stats) {
 							if (error) {
 								$entry(callback.@com.google.gwt.core.client.Callback::onFailure(Ljava/lang/Object;)(error));
