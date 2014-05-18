@@ -18,6 +18,8 @@ package de.voot.dropboxgwt.client;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.google.gwt.core.client.Callback;
 import com.google.gwt.core.client.JavaScriptObject;
@@ -31,16 +33,11 @@ public class DropboxWrapper {
 
 	private JavaScriptObject dropboxClient;
 	private List<ProgressCallback> progressCallbacks;
+	private static final Logger LOG = Logger.getLogger("de.voot.dropboxgwt.client.DropboxWrapper");
 
-	/**
-	 * See
-	 * https://dl-web.dropbox.com/spa/pjlfdak1tmznswp/api_keys.js/public/index
-	 * .html to generate encoded api key
-	 * 
-	 * @param encodedAPIKey
-	 */
-	public DropboxWrapper(String encodedAPIKey) {
-		dropboxClient = instantiateClientObject(encodedAPIKey);
+	public DropboxWrapper(String apiKey) {
+		LOG.log(Level.INFO, "API key is " + apiKey);
+		dropboxClient = instantiateClientObject(apiKey);
 		progressCallbacks = new LinkedList<ProgressCallback>();
 		installProgressListener();
 	}
@@ -61,7 +58,8 @@ public class DropboxWrapper {
 
 		client.onXhr
 				.addListener(function(Xhr) {
-					var path = client.dropboxgwt ? client.dropboxgwt.path : undefined;
+					var path = client.dropboxgwt ? client.dropboxgwt.path
+							: undefined;
 					Xhr.xhr
 							.addEventListener(
 									"progress",
@@ -79,11 +77,10 @@ public class DropboxWrapper {
 				});
 	}-*/;
 
-	private native JavaScriptObject instantiateClientObject(String encodedAPIKey) /*-{
+	private native JavaScriptObject instantiateClientObject(String apiKey) /*-{
 		var Dropbox = $wnd.Dropbox;
 		var client = new $wnd.Dropbox.Client({
-			key : encodedAPIKey,
-			sandbox : true
+			key : apiKey
 		});
 
 		return client;
@@ -91,7 +88,10 @@ public class DropboxWrapper {
 
 	public native void signOut()/*-{
 		var client = this.@de.voot.dropboxgwt.client.DropboxWrapper::dropboxClient;
-		client.signOut();
+		console.log("Erasing oauth tokens");
+		client.signOut({
+			mustInvalidate : true
+		});
 	}-*/;
 
 	/**
@@ -103,9 +103,14 @@ public class DropboxWrapper {
 	public native void isAuthenticated(Callback<Boolean, ApiError> callback) /*-{
 		var client = this.@de.voot.dropboxgwt.client.DropboxWrapper::dropboxClient;
 
-		client.authDriver(new $wnd.Dropbox.Drivers.Redirect({
-			rememberUser : true,
-			useQuery : true
+		var rememberUser = localStorage.getItem("rememberUser") == "true";
+
+		console
+				.log("Checking dropbox authentication status. Remembering user: "
+						+ rememberUser);
+
+		client.authDriver(new $wnd.Dropbox.AuthDriver.Redirect({
+			"rememberUser" : rememberUser
 		}));
 
 		client
@@ -138,9 +143,10 @@ public class DropboxWrapper {
 	public native void authenticate(boolean rememberUser, Callback<Void, ApiError> callback) /*-{
 		var client = this.@de.voot.dropboxgwt.client.DropboxWrapper::dropboxClient;
 
-		client.authDriver(new $wnd.Dropbox.Drivers.Redirect({
-			rememberUser : rememberUser,
-			useQuery : true
+		localStorage.setItem("rememberUser", rememberUser);
+
+		client.authDriver(new $wnd.Dropbox.AuthDriver.Redirect({
+			"rememberUser" : rememberUser
 		}));
 
 		client
@@ -173,7 +179,10 @@ public class DropboxWrapper {
 
 		client
 				.metadata(
-						path, {httpCache: true},
+						path,
+						{
+							httpCache : true
+						},
 						function(error, stat) {
 							if (error) {
 								$entry(callback.@com.google.gwt.core.client.Callback::onFailure(Ljava/lang/Object;)(error));
@@ -188,7 +197,10 @@ public class DropboxWrapper {
 
 		client
 				.readdir(
-						path, {httpCache: true},
+						path,
+						{
+							httpCache : true
+						},
 						function(error, entries, stat, stats) {
 							if (error) {
 								$entry(callback.@com.google.gwt.core.client.Callback::onFailure(Ljava/lang/Object;)(error));
@@ -202,7 +214,9 @@ public class DropboxWrapper {
 		var client = this.@de.voot.dropboxgwt.client.DropboxWrapper::dropboxClient;
 
 		// Used to inject the path into progress listener. Not thread-safe, but there is not really a better way.
-		client.dropboxgwt = {path: path};
+		client.dropboxgwt = {
+			path : path
+		};
 
 		client
 				.readFile(
